@@ -2,6 +2,7 @@ import streamlit as st
 import pickle
 import numpy as np
 import pandas as pd
+import sklearn
 
 # Page Configuration
 st.set_page_config(
@@ -29,32 +30,31 @@ st.markdown("""
         background-color: #e03e3e;
         color: white;
     }
-    .card {
-        padding: 20px;
-        border-radius: 10px;
-        background-color: white;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    }
     </style>
 """, unsafe_allow_html=True)
 
-# Load the Model
+# Load the Model with Version Check
 @st.cache_resource
 def load_model():
     with open('gradient_boosting.pkl', 'rb') as f:
         model = pickle.load(f)
     return model
 
+st.title("⚡ Gradient Boosting Classifier App")
+st.markdown("Enter the required details below to generate real-time predictions.")
+st.markdown("---")
+
 try:
     model = load_model()
 except Exception as e:
     st.error(f"Error loading model file: {e}")
+    st.warning(f"""
+    **How to fix the `_loss` error:**
+    This happens because the model was saved with a newer version of `scikit-learn` than what is currently installed. 
+    - Current `scikit-learn` version in this environment: **{sklearn.__version__}**
+    - Make sure your `requirements.txt` contains: `scikit-learn>=1.2.0` and reinstall dependencies (`pip install -r requirements.txt`).
+    """)
     st.stop()
-
-# App Header
-st.title("⚡ Gradient Boosting Classifier App")
-st.markdown("Enter the required details below to generate real-time predictions from your model.")
-st.markdown("---")
 
 # Input Form Layout
 with st.form("prediction_form"):
@@ -75,7 +75,6 @@ with st.form("prediction_form"):
 
 # Prediction Execution
 if submitted:
-    # Assemble input DataFrame matching feature names in the model
     input_data = pd.DataFrame(
         [[age, gender, review, education]], 
         columns=['age', 'gender', 'review', 'education']
@@ -85,7 +84,6 @@ if submitted:
         prediction = model.predict(input_data)
         prediction_proba = model.predict_proba(input_data) if hasattr(model, "predict_proba") else None
         
-        # Map prediction result to class labels if available
         classes = getattr(model, "classes_", ["No", "Yes"])
         predicted_class = classes[prediction[0]] if len(classes) > prediction[0] else prediction[0]
         
@@ -103,4 +101,3 @@ if submitted:
             
     except Exception as e:
         st.error(f"Prediction Error: {e}")
-        st.warning("Note: If your model was trained on encoded numerical categories rather than raw strings, you may need to map the categorical inputs to match your training encoders.")
