@@ -6,8 +6,6 @@ import sys
 import types
 
 # --- FIX FOR _LOSS UNPICKLING ERROR ---
-# If the model was saved with an older/different sklearn version that references '_loss',
-# we create a safe dummy module in memory so pickle.load() doesn't crash.
 if '_loss' not in sys.modules:
     dummy_loss = types.ModuleType('_loss')
     sys.modules['_loss'] = dummy_loss
@@ -39,7 +37,6 @@ st.markdown("""
         color: white;
     }
     </style>
-""", unsafe_allow_init=True if "unsafe_allow_init" in globals() else False) # standard streamlit below:
 """, unsafe_allow_html=True)
 
 # Load the Model
