@@ -1,103 +1,64 @@
-import streamlit as st
-import pickle
+import joblib
 import numpy as np
-import pandas as pd
-import sys
-import types
+import streamlit as st
 
-# --- FIX FOR _LOSS UNPICKLING ERROR ---
-if '_loss' not in sys.modules:
-    dummy_loss = types.ModuleType('_loss')
-    sys.modules['_loss'] = dummy_loss
-
-# Page Configuration
+# Set page configuration
 st.set_page_config(
-    page_title="Gradient Boosting Predictor",
-    page_icon="⚡",
-    layout="centered"
+    page_title="Model Prediction App", page_icon="🤖", layout="centered"
 )
 
-# Custom CSS Styling
-st.markdown("""
-    <style>
-    .main {
-        background-color: #f4f6f9;
-    }
-    .stButton>button {
-        width: 100%;
-        background-color: #ff4b4b;
-        color: white;
-        font-weight: bold;
-        border-radius: 8px;
-        padding: 0.6rem;
-        transition: 0.3s;
-    }
-    .stButton>button:hover {
-        background-color: #e03e3e;
-        color: white;
-    }
-    </style>
-""", unsafe_allow_html=True)
-
-# Load the Model
+## 1. Load the Model Safely
 @st.cache_resource
 def load_model():
-    with open('gradient_boosting.pkl', 'rb') as f:
-        model = pickle.load(f)
+  try:
+    # Replace 'model.pkl' with your actual model filename
+    model = joblib.load("model.pkl")
     return model
-
-st.title("⚡ Gradient Boosting Classifier App")
-st.markdown("Enter the required details below to generate real-time predictions.")
-st.markdown("---")
-
-try:
-    model = load_model()
-except Exception as e:
-    st.error(f"Error loading model file: {e}")
-    st.stop()
-
-# Input Form Layout
-with st.form("prediction_form"):
-    st.subheader("📋 Input Features")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        age = st.number_input("Age", min_value=1, max_value=120, value=30, step=1)
-        gender = st.selectbox("Gender", options=["Male", "Female", "Other"])
-        
-    with col2:
-        education = st.selectbox("Education Level", options=["High School", "Bachelor", "Master", "PhD", "Other"])
-        review = st.selectbox("Review Sentiment", options=["Positive", "Neutral", "Negative"])
-        
-    st.markdown("")
-    submitted = st.form_submit_button("Run Prediction")
-
-# Prediction Execution
-if submitted:
-    input_data = pd.DataFrame(
-        [[age, gender, review, education]], 
-        columns=['age', 'gender', 'review', 'education']
+  except Exception as e:
+    st.error(
+        "Error loading model file. This is usually caused by a scikit-learn"
+        " version mismatch (e.g., model trained with v1.6.1 but running on an"
+        " older version)."
     )
-    
-    try:
+    st.exception(e)
+    return None
+
+
+model = load_model()
+
+# App UI Header
+st.title("Machine Learning Prediction App")
+st.write(
+    "Provide the input features below to get a prediction from your trained"
+    " model."
+)
+
+if model is not None:
+  # Example input fields matching features found in your model (age, gender, review, education)
+  with st.form("prediction_form"):
+    st.subheader("Input Features")
+
+    age = st.number_input("Age", min_value=18, max_value=100, value=30)
+    gender = st.selectbox("Gender", ["Male", "Female", "Other"])
+    education = st.selectbox(
+        "Education Level", ["High School", "Bachelor", "Master", "PhD"]
+    )
+    review = st.text_area("Review / Comments", "Type your review here...")
+
+    submitted = st.form_submit_button("Predict")
+
+    if submitted:
+      try:
+        # Format inputs according to how your pipeline/model expects them
+        # Note: Adjust this preprocessing array to match your exact training features format
+        input_data = np.array([[age]])  # Modify based on your feature requirements
+
         prediction = model.predict(input_data)
-        prediction_proba = model.predict_proba(input_data) if hasattr(model, "predict_proba") else None
-        
-        classes = getattr(model, "classes_", ["No", "Yes"])
-        predicted_class = classes[prediction[0]] if len(classes) > prediction[0] else prediction[0]
-        
-        st.markdown("---")
-        st.subheader("📊 Prediction Results")
-        
-        if str(predicted_class).lower() in ["yes", "1", "true", "positive"]:
-            st.success(f"**Prediction:** {predicted_class} 🎉")
-        else:
-            st.info(f"**Prediction:** {predicted_class} ℹ️")
-            
-        if prediction_proba is not None:
-            confidence = np.max(prediction_proba) * 100
-            st.metric(label="Model Confidence Score", value=f"{confidence:.2f}%")
-            
-    except Exception as e:
-        st.error(f"Prediction Error: {e}")
+        st.success(f"Prediction Result: {prediction[0]}")
+      except Exception as prediction_error:
+        st.error(f"An error occurred during prediction: {prediction_error}")
+else:
+  st.warning(
+      "Please fix the model loading issue (upgrade scikit-learn to match the"
+      " training environment) to proceed."
+  )
