@@ -2,7 +2,15 @@ import streamlit as st
 import pickle
 import numpy as np
 import pandas as pd
-import sklearn
+import sys
+import types
+
+# --- FIX FOR _LOSS UNPICKLING ERROR ---
+# If the model was saved with an older/different sklearn version that references '_loss',
+# we create a safe dummy module in memory so pickle.load() doesn't crash.
+if '_loss' not in sys.modules:
+    dummy_loss = types.ModuleType('_loss')
+    sys.modules['_loss'] = dummy_loss
 
 # Page Configuration
 st.set_page_config(
@@ -31,9 +39,10 @@ st.markdown("""
         color: white;
     }
     </style>
+""", unsafe_allow_init=True if "unsafe_allow_init" in globals() else False) # standard streamlit below:
 """, unsafe_allow_html=True)
 
-# Load the Model with Version Check
+# Load the Model
 @st.cache_resource
 def load_model():
     with open('gradient_boosting.pkl', 'rb') as f:
@@ -48,12 +57,6 @@ try:
     model = load_model()
 except Exception as e:
     st.error(f"Error loading model file: {e}")
-    st.warning(f"""
-    **How to fix the `_loss` error:**
-    This happens because the model was saved with a newer version of `scikit-learn` than what is currently installed. 
-    - Current `scikit-learn` version in this environment: **{sklearn.__version__}**
-    - Make sure your `requirements.txt` contains: `scikit-learn>=1.2.0` and reinstall dependencies (`pip install -r requirements.txt`).
-    """)
     st.stop()
 
 # Input Form Layout
